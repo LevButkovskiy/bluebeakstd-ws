@@ -2,22 +2,21 @@ const WebSocket = require("ws")
 
 const PORT = 9000
 
-const wsServer = new WebSocket.Server({port: PORT})
+const wss = new WebSocket.Server({port: PORT}, () => console.info("Server started on", PORT))
 
-wsServer.on("connection", (wsClient) => {
-	wsClient.send("Hello")
-	wsClient.on("message", (message) => {
+wss.on("connection", (ws) => {
+	ws.on("message", (message) => {
 		try {
-			const {action, data} = JSON.parse(message)
-			console.log(action)
-			switch (action) {
-				case "ECHO": {
-					wsClient.send(data)
+			const {event, data} = JSON.parse(message)
+			switch (event) {
+				case "message": {
+					const {text, from, to} = data
+					broadcastMessage({from, to, text, createdAt: new Date()})
 					break
 				}
 				case "PING": {
 					setTimeout(() => {
-						wsServer.clients.forEach((client) => client.send("PONG"))
+						wss.clients.forEach((client) => client.send("PONG"))
 					}, 2000)
 					break
 				}
@@ -30,10 +29,12 @@ wsServer.on("connection", (wsClient) => {
 			console.error("ERROR:", error)
 		}
 	})
-	wsClient.on("close", () => {
+	ws.on("close", () => {
 		console.info("connection closed")
 	})
-	wsClient.on("error", (error) => wsClient.send(error))
+	ws.on("error", (error) => ws.send(error))
 })
 
-console.info("Server started on", PORT)
+const broadcastMessage = (message) => {
+	wss.clients.forEach((client) => client.send(JSON.stringify(message)))
+}
